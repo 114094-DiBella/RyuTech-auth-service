@@ -17,6 +17,7 @@ import ryutech.authservice.config.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -74,7 +75,7 @@ public class UserServiceImpl implements UserService {
             UserEntity userEntity = userOptional.get();
 
             // Use passwordEncoder to compare passwords securely
-            if (!userEntity.getPassword().equals(userDto.getPassword())) {
+            if (!passwordEncoder.matches(userDto.getPassword(), userEntity.getPassword())) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Wrong password");
             }
 
@@ -109,12 +110,23 @@ public class UserServiceImpl implements UserService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
         }
 
+        UserEntity userEntity = modelMapper.map(user, UserEntity.class);
+        userEntity.setId(UUID.randomUUID());
+        userEntity.setPassword(passwordEncoder.encode(user.getPassword()));
+        userJpaRepository.save(userEntity);
+        return modelMapper.map(userEntity, User.class);
 
-        return null;
     }
 
     @Override
     public User changePassword(UserDto userDto) {
-        return null;
+        Optional<UserEntity> userOptional = userJpaRepository.findByEmail(userDto.getEmail());
+        if (userOptional.isPresent()) {
+            UserEntity userEntity = userOptional.get();
+            userEntity.setPassword(passwordEncoder.encode(userDto.getPassword()));
+            userJpaRepository.save(userEntity);
+            return modelMapper.map(userEntity, User.class);
+        }
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
     }
 }
